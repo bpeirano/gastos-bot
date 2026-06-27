@@ -2,13 +2,13 @@
 """
 Bot de Telegram — Control de Gastos → Google Sheets
 =====================================================
-Formato:  monto. concepto. fecha. categoria
+Formato:  monto.concepto.fecha.categoria
 
 Ejemplos:
-  5000. cafe. 15 junio. alimentos
-  15000. netflix. hoy. entretenimiento
-  32000. supermercado. ayer. alimentos
-  8500. almuerzo. hoy. restaurante
+  5000.cafe.15 junio.alimentos
+  15000.netflix.hoy.entretenimiento
+  32000.supermercado.ayer.alimentos
+  8500.almuerzo.hoy.restaurante
 
 Fechas soportadas: hoy, ayer, anteayer, 15 junio, 15/6
 
@@ -117,24 +117,24 @@ def parsear_monto(s):
 
 def parsear_mensaje(texto):
     """
-    Formato: monto. concepto. fecha. categoria
+    Formato: monto.concepto.fecha.categoria (sin espacios)
 
     Ejemplos:
-      5000. cafe. 15 junio. alimentos
-      15000. netflix. hoy. entretenimiento
-      32000. supermercado. ayer. alimentos
+      5000.cafe.15 junio.alimentos
+      15000.netflix.hoy.entretenimiento
+      32000.supermercado.ayer.alimentos
     """
     texto = texto.strip()
-    # Separar por ". " — necesitamos exactamente 4 partes
-    partes = re.split(r"\.\s+", texto, maxsplit=3)
-
-    if len(partes) < 4:
+    # El monto siempre empieza con dígitos/$/,
+    # Los demás campos se separan por "." con regex greedy
+    m = re.match(r'^([\d.,\$]+)\.(.+)\.(.+)\.(.+)$', texto)
+    if not m:
         return None
 
-    monto     = parsear_monto(partes[0])
-    concepto  = partes[1].strip().upper()
-    fecha     = parsear_fecha(partes[2].strip())
-    categoria = partes[3].strip().title()
+    monto     = parsear_monto(m.group(1))
+    concepto  = m.group(2).strip().upper()
+    fecha     = parsear_fecha(m.group(3).strip())
+    categoria = m.group(4).strip().title()
 
     if monto <= 0:
         return None
@@ -151,12 +151,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Hola! Soy tu bot de gastos.\n\n"
         "Formato:\n"
-        "  monto. concepto. fecha. categoria\n\n"
+        "  monto.concepto.fecha.categoria\n\n"
         "Ejemplos:\n"
-        "  5000. cafe. 15 junio. alimentos\n"
-        "  15000. netflix. hoy. entretenimiento\n"
-        "  32000. supermercado. ayer. alimentos\n"
-        "  8500. almuerzo. 28 jun. restaurante\n\n"
+        "  5000.cafe.15 junio.alimentos\n"
+        "  15000.netflix.hoy.entretenimiento\n"
+        "  32000.supermercado.ayer.alimentos\n"
+        "  8500.almuerzo.28 jun.restaurante\n\n"
         "Fechas: hoy, ayer, 15 junio, 15/6\n"
         "/resumen - ver tu Google Sheet"
     )
@@ -181,8 +181,8 @@ async def manejar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not tx:
         await update.message.reply_text(
             "No entendi. Formato:\n"
-            "monto. concepto. fecha. categoria\n\n"
-            "Ejemplo: 5000. cafe. 15 junio. alimentos"
+            "monto.concepto.fecha.categoria\n\n"
+            "Ejemplo: 5000.cafe.15 junio.alimentos"
         )
         return
     if guardar_en_sheet(tx):
